@@ -39,17 +39,10 @@ jobs:
       run: go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.55.0 && golangci-lint run ./... --deadline=15m
 
     - name: Unit
-      run: CGO_ENABLED=1 go test -coverprofile=%s -race -test.v ./... ./pkg/... ./apis/... | tee cov.out
+      run: CGO_ENABLED=1 go test -coverprofile=cov.out -race -test.v ./... | tee out.txt
 
     - name: Upload coverage reports to Codecov
       uses: codecov/codecov-action@v3
       with:
         files: ./cov.out
         token: ${{ secrets.CODECOV_TOKEN }}
-
-    - name: Archive cluster logs
-      uses: actions/upload-artifact@v3
-      if: success() || failure()
-      with:
-        name: unit-test-results
-        path: .cache/unit
