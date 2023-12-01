@@ -1,0 +1,135 @@
+package semver
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
+
+func TestRange_Test(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name     string
+		r        Range
+		v        Version
+		expected bool
+	}{
+		{
+			name:     "1.0.0 - 2.0.0 contains 1.0.0",
+			r:        Range{Min: MustNewVersion("1.0.0"), Max: MustNewVersion("2.0.0")},
+			v:        MustNewVersion("1.0.0"),
+			expected: true,
+		},
+		{
+			name:     "1.0.0 - 2.0.0 contains 2.0.0",
+			r:        Range{Min: MustNewVersion("1.0.0"), Max: MustNewVersion("2.0.0")},
+			v:        MustNewVersion("2.0.0"),
+			expected: true,
+		},
+		{
+			name:     "1.0.0 - 2.0.0 does not contain 0.1.0",
+			r:        Range{Min: MustNewVersion("1.0.0"), Max: MustNewVersion("2.0.0")},
+			v:        MustNewVersion("0.1.0"),
+			expected: false,
+		},
+		{
+			name:     "1.0.0 - 2.0.0 does not contain 2.1.0",
+			r:        Range{Min: MustNewVersion("1.0.0"), Max: MustNewVersion("2.0.0")},
+			v:        MustNewVersion("2.1.0"),
+			expected: false,
+		},
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			r := test.r.Check(test.v)
+			assert.Equal(t, test.expected, r)
+		})
+	}
+}
+
+func TestRange_Contains(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name     string
+		rA       Constraint
+		rB       Constraint
+		expected bool
+	}{
+		{
+			name:     "1.0.0 - 2.0.0 contains 1.0.0 - 2.0.0",
+			rA:       &Range{Min: MustNewVersion("1.0.0"), Max: MustNewVersion("2.0.0")},
+			rB:       &Range{Min: MustNewVersion("1.0.0"), Max: MustNewVersion("2.0.0")},
+			expected: true,
+		},
+		{
+			name:     "1.0.0 - 2.0.0 contains 1.3.0 - 1.4.0",
+			rA:       &Range{Min: MustNewVersion("1.0.0"), Max: MustNewVersion("2.0.0")},
+			rB:       &Range{Min: MustNewVersion("1.3.0"), Max: MustNewVersion("1.4.0")},
+			expected: true,
+		},
+		{
+			name:     "1.0.0 - 2.0.0 does not contain 0.1.0 - 1.0.0",
+			rA:       &Range{Min: MustNewVersion("1.0.0"), Max: MustNewVersion("2.0.0")},
+			rB:       &Range{Min: MustNewVersion("0.1.0"), Max: MustNewVersion("1.0.0")},
+			expected: false,
+		},
+		{
+			name:     "1.0.0 - 2.0.0 does not contain 2.1.0 - 3.0.0",
+			rA:       &Range{Min: MustNewVersion("1.0.0"), Max: MustNewVersion("2.0.0")},
+			rB:       &Range{Min: MustNewVersion("2.1.0"), Max: MustNewVersion("3.0.0")},
+			expected: false,
+		},
+		{
+			name:     "1 - 2 && 0 - 1 does not contain 2.1.0 - 3.0.0",
+			rA:       MustNewConstraint("1-2 && 0-1"),
+			rB:       &Range{Min: MustNewVersion("2.1.0"), Max: MustNewVersion("3.0.0")},
+			expected: false,
+		},
+		{
+			name:     "2.1.0 - 3.0.0 does not contain 1 - 2 && 0 - 1",
+			rA:       &Range{Min: MustNewVersion("2.1.0"), Max: MustNewVersion("3.0.0")},
+			rB:       MustNewConstraint("1-2 && 0-1"),
+			expected: false,
+		},
+		{
+			name:     "2.0.0 - 3.0.0 does contain 2-2.4 && 2.5-2.6",
+			rA:       &Range{Min: MustNewVersion("2.0.0"), Max: MustNewVersion("3.0.0")},
+			rB:       MustNewConstraint("2-2.4 && 2.5-2.6"),
+			expected: true,
+		},
+		{
+			name:     "2.0.0 - 3.0.0 does contain 2-2.4 && 2.5-2.6 && !=5.0.0",
+			rA:       &Range{Min: MustNewVersion("2.0.0"), Max: MustNewVersion("3.0.0")},
+			rB:       MustNewConstraint("2-2.4 && 2.5-2.6&& !=5.0.0"),
+			expected: true,
+		},
+		{
+			name:     "2.0.0 - 3.0.0 does not contain 2-2.4 && 2.5-2.6 && !=2.0.0",
+			rA:       &Range{Min: MustNewVersion("2.0.0"), Max: MustNewVersion("3.0.0")},
+			rB:       MustNewConstraint("2-2.4 && 2.5-2.6&& !=2.0.0"),
+			expected: false,
+		},
+		{
+			name:     "2.0.0 - 3.0.0 does contain 2-2.4 || 2.5-2.6 && !=4.0.0",
+			rA:       &Range{Min: MustNewVersion("2.0.0"), Max: MustNewVersion("3.0.0")},
+			rB:       MustNewConstraint("2-2.4 || 2.5-2.6&& !=4.0.0"),
+			expected: true,
+		},
+		{
+			name:     "2.0.0 - 3.0.0 || 5.0.0 - 6.0.0 does contain !=4.0.0 && 5.2.0-6.0.0",
+			rA:       MustNewConstraint("2 - 3 || 5 - 6"),
+			rB:       MustNewConstraint("!=4 && 5.2-6"),
+			expected: true,
+		},
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			r := test.rA.Contains(test.rB)
+			assert.Equal(t, test.expected, r)
+		})
+	}
+}
