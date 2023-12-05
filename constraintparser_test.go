@@ -325,7 +325,9 @@ func TestConstraintParser_success(t *testing.T) {
 			c, err := NewConstraint(test.input)
 			require.NoError(t, err)
 
-			assert.Equal(t, test.expected, c)
+			oic := c.(*originalInputConstraint)
+			assert.Equal(t, test.input, oic.String())
+			assert.Equal(t, test.expected, oic.Constraint)
 		})
 	}
 }

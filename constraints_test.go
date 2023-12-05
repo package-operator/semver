@@ -29,6 +29,21 @@ func TestAnd(t *testing.T) {
 	})
 }
 
+func TestAnd_String(t *testing.T) {
+	t.Parallel()
+	and := and{
+		&Range{
+			Min: MustNewVersion("1.1.0"),
+			Max: MustNewVersion("1.2.5"),
+		},
+		&Range{
+			Min: MustNewVersion("2.1.0"),
+			Max: MustNewVersion("2.2.5"),
+		},
+	}
+	assert.Equal(t, "1.1.0 - 1.2.5 && 2.1.0 - 2.2.5", and.String())
+}
+
 func TestOr(t *testing.T) {
 	t.Parallel()
 	t.Run("one true", func(t *testing.T) {
@@ -50,6 +65,21 @@ func TestOr(t *testing.T) {
 		assert.False(t, or.Check(Version{}))
 		assert.False(t, or.Contains(&Range{}))
 	})
+}
+
+func TestOr_String(t *testing.T) {
+	t.Parallel()
+	or := or{
+		&Range{
+			Min: MustNewVersion("1.1.0"),
+			Max: MustNewVersion("1.2.5"),
+		},
+		&Range{
+			Min: MustNewVersion("2.1.0"),
+			Max: MustNewVersion("2.2.5"),
+		},
+	}
+	assert.Equal(t, "1.1.0 - 1.2.5 || 2.1.0 - 2.2.5", or.String())
 }
 
 func TestNot(t *testing.T) {
@@ -81,6 +111,17 @@ func TestNot(t *testing.T) {
 	})
 }
 
+func TestNot_String(t *testing.T) {
+	t.Parallel()
+	not := not{
+		Range{
+			Min: MustNewVersion("1.1.2"),
+			Max: MustNewVersion("1.1.2"),
+		},
+	}
+	assert.Equal(t, "!=1.1.2", not.String())
+}
+
 // constraint that is always true.
 type positiveConstraint struct{}
 
@@ -92,6 +133,10 @@ func (c *positiveConstraint) Contains(_ Constraint) bool {
 	return true
 }
 
+func (c *positiveConstraint) String() string {
+	return "positiveStub"
+}
+
 // constraint that is always false.
 type negativeConstraint struct{}
 
@@ -101,4 +146,8 @@ func (c *negativeConstraint) Check(_ Version) bool {
 
 func (c *negativeConstraint) Contains(_ Constraint) bool {
 	return false
+}
+
+func (c *negativeConstraint) String() string {
+	return "negativeStub"
 }

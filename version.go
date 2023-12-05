@@ -2,6 +2,7 @@ package semver
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -28,6 +29,15 @@ type Version struct {
 	Major, Minor, Patch uint64
 	PreRelease          PreReleaseIdentifierList
 	BuildMetadata       []string
+}
+
+// Returns true if both Versions are the same.
+func (v *Version) Same(o Version) bool {
+	return v.Major == o.Major &&
+		v.Minor == o.Minor &&
+		v.Patch == o.Patch &&
+		slices.Equal(v.PreRelease, o.PreRelease) &&
+		slices.Equal(v.BuildMetadata, o.BuildMetadata)
 }
 
 // Returns a string representation of the Version.

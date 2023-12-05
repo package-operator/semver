@@ -20,7 +20,14 @@ func MustNewConstraint(data string) Constraint {
 
 // Parses the given string into a Version Constraint.
 func NewConstraint(data string) (Constraint, error) {
-	return parseConstraint([]byte(data))
+	c, err := parseConstraint([]byte(data))
+	if err != nil {
+		return nil, err
+	}
+	return &originalInputConstraint{
+		Constraint: c,
+		original:   data,
+	}, nil
 }
 
 // parseConstraint bytes into a Version Constraint.
