@@ -79,7 +79,7 @@ func TestConstraintParser_success(t *testing.T) {
 		},
 		{
 			name:  "complex OR AND",
-			input: `=1.2.3 || >1.2.3 <5.4.0 && 1.2.3 - 2.3.4 || !=3`,
+			input: `=1.2.3 || >1.2.3 <5.4.0 && 1.2.4 - 2.3.4 || !=3`,
 			expected: or{
 				&Range{
 					Min: Version{Major: 1, Minor: 2, Patch: 3},
@@ -88,15 +88,11 @@ func TestConstraintParser_success(t *testing.T) {
 				and{
 					&Range{
 						Min: Version{Major: 1, Minor: 2, Patch: 4},
-						Max: Version{Major: maxUint64, Minor: maxUint64, Patch: maxUint64},
-					},
-					&Range{
-						Min: Version{Major: 0, Minor: 0, Patch: 0},
-						Max: Version{Major: 5, Minor: 3, Patch: maxUint64},
-					},
-					&Range{
-						Min: Version{Major: 1, Minor: 2, Patch: 3},
 						Max: Version{Major: 2, Minor: 3, Patch: 4},
+					},
+					&Range{
+						Min: Version{Major: 1, Minor: 2, Patch: 4},
+						Max: Version{Major: 5, Minor: 3, Patch: maxUint64},
 					},
 				},
 				not{
@@ -170,7 +166,7 @@ func TestConstraintParser_success(t *testing.T) {
 			input: `>=1.2.3`,
 			expected: &Range{
 				Min: Version{Major: 1, Minor: 2, Patch: 3},
-				Max: Version{Major: maxUint64, Minor: 0, Patch: 0},
+				Max: Version{Major: maxUint64, Minor: maxUint64, Patch: maxUint64},
 			},
 		},
 		{
@@ -178,7 +174,7 @@ func TestConstraintParser_success(t *testing.T) {
 			input: `>=1`,
 			expected: &Range{
 				Min: Version{Major: 1, Minor: 0, Patch: 0},
-				Max: Version{Major: maxUint64, Minor: 0, Patch: 0},
+				Max: Version{Major: maxUint64, Minor: maxUint64, Patch: maxUint64},
 			},
 		},
 		{
@@ -186,7 +182,7 @@ func TestConstraintParser_success(t *testing.T) {
 			input: `>=1.41`,
 			expected: &Range{
 				Min: Version{Major: 1, Minor: 41, Patch: 0},
-				Max: Version{Major: maxUint64, Minor: 0, Patch: 0},
+				Max: Version{Major: maxUint64, Minor: maxUint64, Patch: maxUint64},
 			},
 		},
 		{
@@ -358,18 +354,26 @@ func TestConstraintParser_success(t *testing.T) {
 			},
 		},
 		{
+			name:  "caret unstable minor",
+			input: `>=3.4,<3.5`,
+			expected: &Range{
+				Min: Version{Major: 3, Minor: 4, Patch: 0},
+				Max: Version{Major: 3, Minor: 4, Patch: maxUint64},
+			},
+		},
+		{
 			name:  "simple range and exclude",
 			input: `4.12.x - 4.14.x && != 4.13.5`,
 			expected: and{
-				&Range{
-					Min: Version{Major: 4, Minor: 12, Patch: 0},
-					Max: Version{Major: 4, Minor: 14, Patch: maxUint64},
-				},
 				not{
 					Range{
 						Min: Version{Major: 4, Minor: 13, Patch: 5},
 						Max: Version{Major: 4, Minor: 13, Patch: 5},
 					},
+				},
+				&Range{
+					Min: Version{Major: 4, Minor: 12, Patch: 0},
+					Max: Version{Major: 4, Minor: 14, Patch: maxUint64},
 				},
 			},
 		},
@@ -445,6 +449,26 @@ func TestConstraintParser_error(t *testing.T) {
 		{
 			input:       `= \n`,
 			expectedErr: "col 4: unexpected character U+006E 'n'",
+		},
+		{
+			input:       `>=1.3 && <2 && <1`,
+			expectedErr: "col 17: <=0.x.x overlaps with <=1.x.x in logical AND",
+		},
+		{
+			input:       `>=1.3 && <2 && >1.1`,
+			expectedErr: "col 19: >=1.2.0 overlaps with >=1.3.0 in logical AND",
+		},
+		{
+			input:       `2 - 3 && 1 - 2`,
+			expectedErr: `col 14: non overlapping ranges "1.0.0 - 2.0.0" and "2.0.0 - 3.0.0" in logical AND`,
+		},
+		{
+			input:       `2 - 3 1 - 2`,
+			expectedErr: `col 9: double hyphen in range constraint`,
+		},
+		{
+			input:       `2 - 3, 1 - 2`,
+			expectedErr: `col 12: non overlapping ranges "1.0.0 - 2.0.0" and "2.0.0 - 3.0.0" in logical AND`,
 		},
 	}
 	for _, test := range tests {
