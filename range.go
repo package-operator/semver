@@ -13,6 +13,9 @@ type Range struct {
 }
 
 func (r *Range) String() string {
+	if r.Min.Same(r.Max) {
+		return r.Min.String()
+	}
 	return fmt.Sprintf("%s - %s", r.Min.String(), r.Max.String())
 }
 
@@ -37,6 +40,9 @@ func rangeContains(r Range, other Constraint) bool {
 	switch v := other.(type) {
 	case *Range:
 		return rangeContainsRange(r, *v)
+
+	case *originalInputConstraint:
+		return rangeContains(r, v.Constraint)
 
 	case not:
 		return !rangeContainsRange(r, v.Range)

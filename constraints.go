@@ -1,11 +1,27 @@
 package semver
 
+import "strings"
+
 // Constraint interface is common to all version constraints.
 type Constraint interface {
 	// Check if the version is allowed by the constraint or not.
 	Check(v Version) bool
 	// Check if a range is contained within a constraint.
 	Contains(or Constraint) bool
+	// Returns the string representation of this constraint.
+	String() string
+}
+
+// safes original parser input to return via the String method.
+type originalInputConstraint struct {
+	Constraint
+	original string
+}
+
+var _ Constraint = (*originalInputConstraint)(nil)
+
+func (oi *originalInputConstraint) String() string {
+	return oi.original
 }
 
 // and is a list of Ranges that all have to pass.
@@ -31,6 +47,14 @@ func (and and) Contains(or Constraint) bool {
 	return true
 }
 
+func (and and) String() string {
+	parts := make([]string, len(and))
+	for i := range and {
+		parts[i] = and[i].String()
+	}
+	return strings.Join(parts, " && ")
+}
+
 // or is a list of Constraints that need at least one match.
 type or []Constraint
 
@@ -54,6 +78,14 @@ func (or or) Contains(other Constraint) bool {
 	return false
 }
 
+func (or or) String() string {
+	parts := make([]string, len(or))
+	for i := range or {
+		parts[i] = or[i].String()
+	}
+	return strings.Join(parts, " || ")
+}
+
 // not negates the given Range.
 type not struct{ Range }
 
@@ -65,4 +97,8 @@ func (not not) Check(v Version) bool {
 
 func (not not) Contains(other Constraint) bool {
 	return !not.Range.Contains(other)
+}
+
+func (not not) String() string {
+	return "!=" + not.Range.String()
 }
