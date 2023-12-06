@@ -185,6 +185,9 @@ func (p *parserState) closeRange(pos internal.Position) error {
 			r.Max.Minor = maxUint64
 		}
 		r.Max.Patch = maxUint64
+
+	default:
+		return fmt.Errorf("%s: range closed without operator", pos)
 	}
 
 	var c Constraint
@@ -212,17 +215,21 @@ func (p *parserState) close(pos internal.Position) error {
 		return err
 	}
 
-	if len(p.and) == 1 {
+	switch len(p.and) {
+	case 0:
+	case 1:
 		p.or = append(p.or, p.and[0])
-	} else {
+	default:
 		p.or = append(p.or, p.and)
 	}
 
-	if len(p.or) == 1 {
+	switch len(p.or) {
+	case 0:
+	case 1:
 		p.c = p.or[0]
-		return nil
+	default:
+		p.c = p.or
 	}
-	p.c = p.or
 	return nil
 }
 
@@ -289,7 +296,9 @@ parse:
 			p.expectingNumber = true
 
 		case ranges.EOF:
-			p.close(pos)
+			if err := p.close(pos); err != nil {
+				return nil, err
+			}
 			break parse
 
 		case ranges.NUMBER:
@@ -299,6 +308,8 @@ parse:
 		case ranges.WILDCARD:
 			if p.max {
 				p.addNumberToVersion(maxUint64)
+			} else {
+				p.addNumberToVersion(0)
 			}
 			if p.semverPos != 0 {
 				p.semverPos--
@@ -313,5 +324,9 @@ parse:
 			}
 		}
 	}
+	if p.c == nil {
+		return nil, fmt.Errorf("%s: empty", internal.Position(1))
+	}
+
 	return p.c, nil
 }

@@ -16,6 +16,14 @@ func TestConstraintParser_success(t *testing.T) {
 		expected Constraint
 	}{
 		{
+			name:  "x to x",
+			input: `x - x`,
+			expected: &Range{
+				Min: Version{Major: 0, Minor: 0, Patch: 0},
+				Max: Version{Major: maxUint64, Minor: maxUint64, Patch: maxUint64},
+			},
+		},
+		{
 			name:  "simple range",
 			input: `1.2.3 - 1.3.4`,
 			expected: &Range{
@@ -317,6 +325,22 @@ func TestConstraintParser_success(t *testing.T) {
 				Max: Version{Major: 0, Minor: 0, Patch: maxUint64},
 			},
 		},
+		{
+			name:  "simple range and exclude",
+			input: `4.12.x - 4.14.x && != 4.13.5`,
+			expected: and{
+				&Range{
+					Min: Version{Major: 4, Minor: 12, Patch: 0},
+					Max: Version{Major: 4, Minor: 14, Patch: maxUint64},
+				},
+				not{
+					Range{
+						Min: Version{Major: 4, Minor: 13, Patch: 5},
+						Max: Version{Major: 4, Minor: 13, Patch: 5},
+					},
+				},
+			},
+		},
 	}
 	for _, test := range tests {
 		test := test
@@ -338,6 +362,22 @@ func TestConstraintParser_error(t *testing.T) {
 		input       string
 		expectedErr string
 	}{
+		{
+			input:       `x`,
+			expectedErr: "col 1: range closed without operator",
+		},
+		{
+			input:       `3`,
+			expectedErr: "col 1: range closed without operator",
+		},
+		{
+			input:       `3.4`,
+			expectedErr: "col 3: range closed without operator",
+		},
+		{
+			input:       ``,
+			expectedErr: "col 1: empty",
+		},
 		{
 			input:       `1.2.3.3.4`,
 			expectedErr: "col 6: found 3rd dot when parsing semver",
