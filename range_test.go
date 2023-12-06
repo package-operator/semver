@@ -64,6 +64,12 @@ func TestRange_Contains(t *testing.T) {
 			expected: true,
 		},
 		{
+			name:     ">=3 contains >=3",
+			rA:       MustNewConstraint(">=3"),
+			rB:       MustNewConstraint(">=3"),
+			expected: true,
+		},
+		{
 			name:     "1.0.0 - 2.0.0 contains 1.3.0 - 1.4.0",
 			rA:       &Range{Min: MustNewVersion("1.0.0"), Max: MustNewVersion("2.0.0")},
 			rB:       &Range{Min: MustNewVersion("1.3.0"), Max: MustNewVersion("1.4.0")},

@@ -174,6 +174,22 @@ func TestConstraintParser_success(t *testing.T) {
 			},
 		},
 		{
+			name:  "greater equal major",
+			input: `>=1`,
+			expected: &Range{
+				Min: Version{Major: 1, Minor: 0, Patch: 0},
+				Max: Version{Major: maxUint64, Minor: 0, Patch: 0},
+			},
+		},
+		{
+			name:  "greater equal minor",
+			input: `>=1.41`,
+			expected: &Range{
+				Min: Version{Major: 1, Minor: 41, Patch: 0},
+				Max: Version{Major: maxUint64, Minor: 0, Patch: 0},
+			},
+		},
+		{
 			name:  "less",
 			input: `<1.2.3`,
 			expected: &Range{
@@ -219,6 +235,22 @@ func TestConstraintParser_success(t *testing.T) {
 			expected: &Range{
 				Min: Version{Major: 0, Minor: 0, Patch: 0},
 				Max: Version{Major: 1, Minor: 2, Patch: 3},
+			},
+		},
+		{
+			name:  "less equal minor",
+			input: `<=1.42`,
+			expected: &Range{
+				Min: Version{Major: 0, Minor: 0, Patch: 0},
+				Max: Version{Major: 1, Minor: 42, Patch: 0},
+			},
+		},
+		{
+			name:  "less equal major",
+			input: `<=42`,
+			expected: &Range{
+				Min: Version{Major: 0, Minor: 0, Patch: 0},
+				Max: Version{Major: 42, Minor: 0, Patch: 0},
 			},
 		},
 		{
