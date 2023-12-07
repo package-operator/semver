@@ -169,7 +169,7 @@ func (p *parserState) closeRange(pos internal.Position) error {
 		r.Min = Version{} // 0.0.0
 
 	case ranges.GREATER_EQUAL:
-		r.Max = Version{Major: maxUint64}
+		r.Max = Version{Major: maxUint64, Minor: maxUint64, Patch: maxUint64}
 
 	case ranges.TILDE:
 		r.Max = r.Min
@@ -198,6 +198,11 @@ func (p *parserState) closeRange(pos internal.Position) error {
 	}
 
 	p.and = append(p.and, c)
+	var err error
+	p.and, err = compactAndValidateLogicalAND(pos, p.and)
+	if err != nil {
+		return err
+	}
 
 	// reset
 	p.resetRange()
@@ -329,4 +334,64 @@ parse:
 	}
 
 	return p.c, nil
+}
+
+func compactAndValidateLogicalAND(pos internal.Position, and and) (and, error) {
+	if len(and) < 2 {
+		return and, nil
+	}
+
+	var fullyDefinedConstraints []Constraint
+
+	// find min version and max version
+	var (
+		max *Version
+		min *Version
+	)
+	for _, c := range and {
+		r, ok := c.(*Range)
+		switch {
+		case ok && isMinUnconstraint(*r):
+			if max != nil {
+				return nil, fmt.Errorf("%s: <=%s overlaps with <=%s in logical AND", pos, r.Max.String(), max)
+			}
+			max = &r.Max
+
+		case ok && isMaxUnconstraint(*r):
+			if min != nil {
+				return nil, fmt.Errorf("%s: >=%s overlaps with >=%s in logical AND", pos, r.Min.String(), min)
+			}
+			min = &r.Min
+
+		case ok:
+			if min != nil && max != nil {
+				existingRange := Range{Min: *min, Max: *max}
+				if !existingRange.Contains(r) {
+					return nil, fmt.Errorf("%s: non overlapping ranges %q and %q in logical AND", pos, r.String(), existingRange.String())
+				}
+				fullyDefinedConstraints = append(fullyDefinedConstraints, c)
+			} else {
+				min = &r.Min
+				max = &r.Max
+			}
+
+		default:
+			fullyDefinedConstraints = append(fullyDefinedConstraints, c)
+		}
+	}
+	if min != nil && max != nil {
+		fullyDefinedConstraints = append(fullyDefinedConstraints, &Range{
+			Min: *min,
+			Max: *max,
+		})
+	}
+	return fullyDefinedConstraints, nil
+}
+
+func isMinUnconstraint(r Range) bool {
+	return r.Min.Same(Version{})
+}
+
+func isMaxUnconstraint(r Range) bool {
+	return r.Max.Same(Version{Major: maxUint64, Minor: maxUint64, Patch: maxUint64})
 }
