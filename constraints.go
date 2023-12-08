@@ -96,7 +96,7 @@ func (not not) Check(v Version) bool {
 }
 
 func (not not) Contains(other Constraint) bool {
-	return !not.Range.Contains(other)
+	return !other.Contains(&not.Range)
 }
 
 func (not not) String() string {

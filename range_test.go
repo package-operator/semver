@@ -141,6 +141,48 @@ func TestRange_Contains(t *testing.T) {
 			rB:       MustNewConstraint(">=4.12,<4.13"),
 			expected: true,
 		},
+		{
+			name:     "~4.11 does not contain ~4.11 && !=4.11.3",
+			rA:       MustNewConstraint("~4.11"),
+			rB:       MustNewConstraint("~4.11 && !=4.11.3"),
+			expected: false,
+		},
+		{
+			name:     "4.11-4.13 does not contain 4.11-4.13 && !=4.11.3",
+			rA:       MustNewConstraint("4.11-4.13"),
+			rB:       MustNewConstraint("4.11-4.13 && !=4.11.3"),
+			expected: false,
+		},
+		{
+			name:     "4.11-4.13 && !=4.11.3 does not contain 4.11-4.13",
+			rA:       MustNewConstraint("4.11-4.13 && !=4.11.3"),
+			rB:       MustNewConstraint("4.11-4.13"),
+			expected: false,
+		},
+		{
+			name:     "!=4.11.3 does not contain 4.11-4.13",
+			rA:       MustNewConstraint("!=4.11.3"),
+			rB:       MustNewConstraint("4.11-4.13"),
+			expected: false,
+		},
+		{
+			name:     "=4.11.3 does not contain 4.11-4.13",
+			rA:       MustNewConstraint("=4.11.3"),
+			rB:       MustNewConstraint("4.11-4.13"),
+			expected: false,
+		},
+		{
+			name:     "4.11-4.13 does contain =4.11.3",
+			rA:       MustNewConstraint("4.11-4.13"),
+			rB:       MustNewConstraint("=4.11.3"),
+			expected: true,
+		},
+		{
+			name:     "4.11-4.13 does contain !=4.14.3",
+			rA:       MustNewConstraint("4.11-4.13"),
+			rB:       MustNewConstraint("!=4.14.3"),
+			expected: true,
+		},
 	}
 	for _, test := range tests {
 		test := test
