@@ -79,7 +79,7 @@ func TestConstraintParser_success(t *testing.T) {
 		},
 		{
 			name:  "complex OR AND",
-			input: `=1.2.3 || >1.2.3 <5.4.0 && 1.2.4 - 2.3.4 || !=3`,
+			input: `=1.2.3 || >1.2.3 <5.4.0 && 1.2.4 - 2.3.4 || !=3.0.0`,
 			expected: or{
 				&Range{
 					Min: Version{Major: 1, Minor: 2, Patch: 3},
@@ -118,6 +118,26 @@ func TestConstraintParser_success(t *testing.T) {
 				Range{
 					Min: Version{Major: 1, Minor: 2, Patch: 3},
 					Max: Version{Major: 1, Minor: 2, Patch: 3},
+				},
+			},
+		},
+		{
+			name:  "not equal patch wildcard",
+			input: `!=1.2.x`,
+			expected: not{
+				Range{
+					Min: Version{Major: 1, Minor: 2, Patch: 0},
+					Max: Version{Major: 1, Minor: 2, Patch: maxUint64},
+				},
+			},
+		},
+		{
+			name:  "not equal minor wildcard",
+			input: `!=1.x`,
+			expected: not{
+				Range{
+					Min: Version{Major: 1, Minor: 0, Patch: 0},
+					Max: Version{Major: 1, Minor: maxUint64, Patch: maxUint64},
 				},
 			},
 		},

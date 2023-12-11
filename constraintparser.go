@@ -118,6 +118,14 @@ func (p *parserState) closeRange(pos internal.Position) error {
 	switch p.operator {
 	case ranges.EQUAL, ranges.NOT_EQUAL:
 		r.Max = r.Min
+		switch p.lastSemverPos {
+		case 0:
+			r.Max.Minor = maxUint64
+			r.Max.Patch = maxUint64
+
+		case 1:
+			r.Max.Patch = maxUint64
+		}
 
 	case ranges.GREATER:
 		switch p.lastSemverPos {
@@ -181,7 +189,6 @@ func (p *parserState) closeRange(pos internal.Position) error {
 	case ranges.CARET:
 		r.Max = r.Min
 		if r.Min.Major != 0 {
-			// r.Max.wildcardUnset()
 			r.Max.Minor = maxUint64
 		}
 		r.Max.Patch = maxUint64
