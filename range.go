@@ -30,7 +30,7 @@ func (r *Range) Check(v Version) bool {
 	return true
 }
 
-// Checks if the given constraint fits into this range.
+// Contains checks if the given constraint fits into this range.
 func (r *Range) Contains(other Constraint) bool {
 	return rangeContains(*r, other)
 }

@@ -399,7 +399,6 @@ func TestConstraintParser_success(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			c, err := NewConstraint(test.input)
@@ -492,7 +491,6 @@ func TestConstraintParser_error(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		test := test
 		t.Run(test.input, func(t *testing.T) {
 			t.Parallel()
 			_, err := NewConstraint(test.input)
@@ -517,7 +515,6 @@ func TestConstraintParser_invalidBytes(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		test := test
 		t.Run(string(test.version), func(t *testing.T) {
 			t.Parallel()
 			_, err := parseConstraint(test.version)
