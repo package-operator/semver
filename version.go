@@ -10,7 +10,7 @@ import (
 // VersionList keeps a list of versions and provides helper functions on them.
 type VersionList []Version
 
-// Converts all Versions into strings and returns them.
+// StringList converts all Versions into strings and returns them.
 func (l VersionList) StringList() []string {
 	vs := make([]string, len(l))
 	for i := range l {
@@ -24,14 +24,14 @@ func (l VersionList) String() string {
 	return strings.Join(l.StringList(), ", ")
 }
 
-// Represents a Semantic Versioning 2.0.0 Version.
+// Version represents a Semantic Versioning 2.0.0 Version.
 type Version struct {
 	Major, Minor, Patch uint64
 	PreRelease          PreReleaseIdentifierList
 	BuildMetadata       []string
 }
 
-// Returns true if both Versions are the same.
+// Same returns true if both Versions are the same.
 func (v *Version) Same(o Version) bool {
 	return v.Major == o.Major &&
 		v.Minor == o.Minor &&
@@ -40,7 +40,7 @@ func (v *Version) Same(o Version) bool {
 		slices.Equal(v.BuildMetadata, o.BuildMetadata)
 }
 
-// Returns a string representation of the Version.
+// String returns a string representation of the Version.
 func (v *Version) String() string {
 	s := fmt.Sprintf("%s.%s.%s",
 		printXonMaxInt(v.Major),
@@ -92,8 +92,13 @@ func (v *Version) Compare(o Version) int {
 	return o.PreRelease.Compare(v.PreRelease)
 }
 
+// PreReleaseIdentifierList is a list of PreReleaseIdentifiers.
+// A pre-release version MAY be denoted by appending a hyphen and
+// a series of dot separated identifiers immediately following the patch version.
+// Examples: 1.0.0-alpha, 1.0.0-alpha.1, 1.0.0-0.3.7, 1.0.0-x.7.z.92, 1.0.0-x-y-z.--.
 type PreReleaseIdentifierList []PreReleaseIdentifier
 
+// String returns the pre-release identifier list as a single string joined by '.'.
 func (l PreReleaseIdentifierList) String() string {
 	pre := make([]string, len(l))
 	for i := range l {
@@ -122,7 +127,7 @@ func (l PreReleaseIdentifierList) Compare(o []PreReleaseIdentifier) int {
 		prel = otherLen
 	}
 
-	for i := 0; i < prel; i++ {
+	for i := range prel {
 		var (
 			pre   PreReleaseIdentifier
 			other PreReleaseIdentifier
@@ -179,21 +184,25 @@ func (s *PreReleaseIdentifier) Compare(o PreReleaseIdentifier) int {
 	return 1
 }
 
-func (s *PreReleaseIdentifier) Interface() interface{} {
+// Interface returns either a string or uint64 depending on the underlying type.
+func (s *PreReleaseIdentifier) Interface() any {
 	if len(s.str) > 0 {
 		return s.str
 	}
 	return s.num
 }
 
+// GetString returns a string and whether the underlying type is a string.
 func (s *PreReleaseIdentifier) GetString() (string, bool) {
 	return s.str, len(s.str) > 0
 }
 
+// GetNumber returns a uint64 and whether the underlying type is a uint64.
 func (s *PreReleaseIdentifier) GetNumber() (uint64, bool) {
 	return s.num, len(s.str) == 0
 }
 
+// String always returns a string representation.
 func (s *PreReleaseIdentifier) String() string {
 	if len(s.str) > 0 {
 		return s.str
@@ -201,7 +210,7 @@ func (s *PreReleaseIdentifier) String() string {
 	return strconv.FormatUint(s.num, 10)
 }
 
-// Converts the given string into a PreReleaseIdentifier.
+// ToPreReleaseIdentifier converts the given string into a PreReleaseIdentifier.
 func ToPreReleaseIdentifier(s string) PreReleaseIdentifier {
 	num, err := strconv.ParseUint(s, 10, 0)
 	if err != nil {

@@ -145,7 +145,6 @@ func TestParser_success(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		test := test
 		t.Run(test.version, func(t *testing.T) {
 			t.Parallel()
 			v, err := NewVersion(test.version)
@@ -247,7 +246,6 @@ func TestParser_error(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		test := test
 		t.Run(test.version, func(t *testing.T) {
 			t.Parallel()
 			_, err := NewVersion(test.version)

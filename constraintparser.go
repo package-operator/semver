@@ -1,3 +1,12 @@
+// Package semver implements logic to work with Sementic Versioning 2.0.0 in Go.
+// It provides:
+// - Parser for semantic versions
+// - Validation of semantic versions
+// - Sorting of semantic versions
+// - Parser for semantic version range constraints
+// - Range constraint matching
+//   - whether version contained in range
+//   - whether a range is contained in another range
 package semver
 
 import (
@@ -9,7 +18,7 @@ import (
 
 const maxUint64 = ^uint64(0)
 
-// Parses the given string into a Version Constraint or panics.
+// MustNewConstraint parses the given string into a Version Constraint or panics.
 func MustNewConstraint(data string) Constraint {
 	c, err := NewConstraint(data)
 	if err != nil {
@@ -18,7 +27,7 @@ func MustNewConstraint(data string) Constraint {
 	return c
 }
 
-// Parses the given string into a Version Constraint.
+// NewConstraint parses the given string into a Version Constraint.
 func NewConstraint(data string) (Constraint, error) {
 	c, err := parseConstraint([]byte(data))
 	if err != nil {
@@ -250,7 +259,7 @@ parse:
 	for {
 		pos, tok, lit := p.scanner.Scan()
 		if len(p.errors) > 0 {
-			return nil, fmt.Errorf(p.errors[0])
+			return nil, fmt.Errorf("%s", p.errors[0])
 		}
 
 		switch tok {
@@ -352,44 +361,53 @@ func compactAndValidateLogicalAND(pos internal.Position, and and) (and, error) {
 
 	// find min version and max version
 	var (
-		max *Version
-		min *Version
+		maxVersion *Version
+		minVersion *Version
 	)
 	for _, c := range and {
 		r, ok := c.(*Range)
 		switch {
 		case ok && isMinUnconstraint(*r):
-			if max != nil {
-				return nil, fmt.Errorf("%s: <=%s overlaps with <=%s in logical AND", pos, r.Max.String(), max)
+			if maxVersion != nil {
+				return nil, fmt.Errorf(
+					"%s: <=%s overlaps with <=%s in logical AND",
+					pos, r.Max.String(), maxVersion,
+				)
 			}
-			max = &r.Max
+			maxVersion = &r.Max
 
 		case ok && isMaxUnconstraint(*r):
-			if min != nil {
-				return nil, fmt.Errorf("%s: >=%s overlaps with >=%s in logical AND", pos, r.Min.String(), min)
+			if minVersion != nil {
+				return nil, fmt.Errorf(
+					"%s: >=%s overlaps with >=%s in logical AND",
+					pos, r.Min.String(), minVersion,
+				)
 			}
-			min = &r.Min
+			minVersion = &r.Min
 
 		case ok:
-			if min != nil && max != nil {
-				existingRange := Range{Min: *min, Max: *max}
+			if minVersion != nil && maxVersion != nil {
+				existingRange := Range{Min: *minVersion, Max: *maxVersion}
 				if !existingRange.Contains(r) {
-					return nil, fmt.Errorf("%s: non overlapping ranges %q and %q in logical AND", pos, r.String(), existingRange.String())
+					return nil, fmt.Errorf(
+						"%s: non overlapping ranges %q and %q in logical AND",
+						pos, r.String(), existingRange.String(),
+					)
 				}
 				fullyDefinedConstraints = append(fullyDefinedConstraints, c)
 			} else {
-				min = &r.Min
-				max = &r.Max
+				minVersion = &r.Min
+				maxVersion = &r.Max
 			}
 
 		default:
 			fullyDefinedConstraints = append(fullyDefinedConstraints, c)
 		}
 	}
-	if min != nil && max != nil {
+	if minVersion != nil && maxVersion != nil {
 		fullyDefinedConstraints = append(fullyDefinedConstraints, &Range{
-			Min: *min,
-			Max: *max,
+			Min: *minVersion,
+			Max: *maxVersion,
 		})
 	}
 	return fullyDefinedConstraints, nil

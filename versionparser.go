@@ -1,6 +1,7 @@
 package semver
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"unicode/utf8"
@@ -8,7 +9,7 @@ import (
 	"pkg.package-operator.run/semver/internal"
 )
 
-// Parses the given string into a Version object and panics on error.
+// MustNewVersion parses the given string into a Version object and panics on error.
 func MustNewVersion(src string) Version {
 	v, err := NewVersion(src)
 	if err != nil {
@@ -17,7 +18,7 @@ func MustNewVersion(src string) Version {
 	return v
 }
 
-// Parses the given string into a Version object.
+// NewVersion parses the given string into a Version object.
 func NewVersion(src string) (Version, error) {
 	return parseVersion([]byte(src))
 }
@@ -221,7 +222,7 @@ func (p *parser) scanBuildMeta() ([]string, error) {
 
 func (p *parser) scanPreRelease() ([]PreReleaseIdentifier, error) {
 	if p.logicalPosition != 3 {
-		return nil, fmt.Errorf("pre release not after patch")
+		return nil, errors.New("pre release not after patch")
 	}
 
 	var prParts []PreReleaseIdentifier

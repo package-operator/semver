@@ -2,7 +2,7 @@ package semver
 
 import "sort"
 
-// Sorts versions Ascending via the sorts standard lib package.
+// Ascending sorts versions Ascending via the sorts standard lib package.
 // resulting order: 1.0.0, 1.1.0, 2.0.0.
 type Ascending []Version
 
@@ -26,7 +26,7 @@ func (l Ascending) Swap(i, j int) {
 	l[i], l[j] = l[j], l[i]
 }
 
-// Sorts versions Descending via the sorts standard lib package.
+// Descending sorts versions Descending via the sorts standard lib package.
 // resulting order: 2.0.0, 1.1.0, 1.0.0.
 type Descending []Version
 

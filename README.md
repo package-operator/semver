@@ -1,6 +1,6 @@
 # Semver
 
-The `semver` package implements logic to work with [Sementic Versioning 2.0.0](http://semver.org/) in Go.  
+The `semver` package implements logic to work with [Sementic Versioning 2.0.0](http://semver.org/) in Go.
 It provides:
 - Parser for semantic versions
 - Validation of semantic versions
@@ -10,15 +10,15 @@ It provides:
     - whether version contained in range
     - whether a range is contained in another range
 
-This library is loosely based on the awesome:  
+This library is loosely based on the awesome:
 https://github.com/Masterminds/semver
 
 ## Parsing Semantic Versions
 
 This library implements strict parsing of semantic versions as outlined in the [Sementic Versioning](http://semver.org/) spec. Shorthand forms or a `v` prefix e.g. 2.0, 1, v2.1.2 are not considered valid semantic versions following the 2.0.0 spec.
 
-> **Parsing Huge Versions**  
-> Semver does not limit the amount of Major, Minor or Patch version numbers.  
+> **Parsing Huge Versions**
+> Semver does not limit the amount of Major, Minor or Patch version numbers.
 Making `99999999999999999999999.999999999999999999.99999999999999999` a valid semver.
 > For simplicity this library uses `uint64` as underlying datatype for Major, Minor and Patch, limiting the maximum number to `9999999999999999999`.
 
@@ -39,7 +39,7 @@ e.g. `1 - 2` => `1.0.0 - 2.0.0`
 
 Pre release versions that fall within a range will match. If pre release versions should be excluded, they have to be filtered before checking against constraints.
 
-Specifying pre-release ranges is NOT supported.  
+Specifying pre-release ranges is NOT supported.
 e.g. `1.0.0-rc.0 - 1.0.0.rc.10`
 
 In the following examples `<max>` is used to denote the max number possible to put into the Major, Minor or Patch section of a semantic version.

@@ -85,10 +85,9 @@ func TestAscendingDescendingSort(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			var list []Version
+			list := make([]Version, 0, len(test.input))
 			for _, vs := range test.input {
 				v, err := NewVersion(vs)
 				require.NoError(t, err)

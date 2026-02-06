@@ -17,7 +17,6 @@ func TestVersion_String(t *testing.T) {
 		"1.2.3----RC-SNAPSHOT.12.9.1--.12+788",
 	}
 	for _, test := range tests {
-		test := test
 		t.Run(test, func(t *testing.T) {
 			t.Parallel()
 			v, err := NewVersion(test)
@@ -73,7 +72,6 @@ func TestPreReleaseIdentifier_Compare(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			d := test.pre.Compare(test.other)
@@ -144,7 +142,6 @@ func TestPreReleaseIdentifierList_Compare(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			pre := PreReleaseIdentifierList(test.pre)
