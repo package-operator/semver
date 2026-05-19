@@ -184,10 +184,10 @@ func TestRange_Contains(t *testing.T) {
 			expected: true,
 		},
 		{
-			name:     "2 - 3 && 1 - 2 does contain 1 - 3",
+			name:     "2 - 3 && 1 - 2 does NOT contain 1 - 3 (AND is intersection, not union)",
 			rA:       MustNewConstraint("2 - 3 && 1 - 2"),
 			rB:       MustNewConstraint("1 - 3"),
-			expected: true,
+			expected: false,
 		},
 		{
 			name:     "4.12.x - 4.14.x && != 4.13.5 does contain 4.13.0 - 4.13.4 || 4.13.6 - 4.13.8",

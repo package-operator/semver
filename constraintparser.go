@@ -245,6 +245,9 @@ func (p *parserState) close(pos internal.Position) error {
 		p.or = append(p.or, p.and)
 	}
 
+	// Compact OR'd ranges if possible
+	p.or = compactLogicalOR(p.or)
+
 	switch len(p.or) {
 	case 0:
 	case 1:
@@ -353,9 +356,63 @@ parse:
 	return p.c, nil
 }
 
-// compactAndValidateLogicalAND validates ranges make sense and don't overlap
-// and it combines ranges that are not fully specified.
-// e.g. "3.4.0 - MAX.MAX.MAX && 0.0.0 - 3.4.MAX" will simplify to "3.4.0 - 3.4.MAX".
+// compactLogicalOR combines adjacent or overlapping ranges in OR operations.
+// For example, "1-2 || 2-3" → "1-3" (union of ranges).
+func compactLogicalOR(constraints or) or {
+	if len(constraints) < 2 {
+		return constraints
+	}
+
+	// Extract only Range constraints
+	var ranges []Range
+	var other []Constraint
+	for _, c := range constraints {
+		if r, ok := c.(*Range); ok {
+			ranges = append(ranges, *r)
+		} else {
+			other = append(other, c)
+		}
+	}
+
+	if len(ranges) < 2 {
+		return constraints
+	}
+
+	// Sort ranges by min version
+	sort.Sort(AscendingMin(ranges))
+
+	// Merge overlapping or adjacent ranges
+	merged := []Range{ranges[0]}
+	for i := 1; i < len(ranges); i++ {
+		last := &merged[len(merged)-1]
+		current := ranges[i]
+
+		// Check if current range overlaps or is adjacent to the last merged range
+		// Adjacent means last.Max >= current.Min (allowing for touching at boundary)
+		if !last.Max.LessThan(current.Min) {
+			// Merge: extend last range's max if current goes further
+			if current.Max.GreaterThan(last.Max) {
+				last.Max = current.Max
+			}
+		} else {
+			// No overlap, add as new range
+			merged = append(merged, current)
+		}
+	}
+
+	// Rebuild constraint list
+	result := make(or, 0, len(merged)+len(other))
+	for i := range merged {
+		result = append(result, &merged[i])
+	}
+	result = append(result, other...)
+
+	return result
+}
+
+// compactAndValidateLogicalAND validates ranges make sense and don't overlap.
+// It combines separate lower and upper bounds (e.g., ">=X && <=Y" → "X - Y")
+// but does NOT combine full ranges, as AND represents intersection, not union.
 func compactAndValidateLogicalAND(pos internal.Position, and and) (and, error) {
 	// Validate even single constraints to catch impossible ranges
 	if len(and) < 1 {
@@ -401,20 +458,10 @@ func compactAndValidateLogicalAND(pos internal.Position, and and) (and, error) {
 			minVersion = &r.Min
 
 		case ok:
+			// Don't combine full ranges in AND - they represent intersections, not unions.
+			// Only combine when we have separate lower/upper bounds (e.g., >=X && <=Y).
 			if minVersion != nil && maxVersion != nil {
-				// We already have another range preceding us.
-				if maxVersion.Equal(r.Min) {
-					// The preceding range max is our min,
-					// we can combine both ranges together.
-					maxVersion = &r.Max
-					break
-				}
-				if minVersion.Equal(r.Max) {
-					// The preceding range min is our max,
-					// we can combine both ranges together.
-					minVersion = &r.Min
-					break
-				}
+				// We already have a combined range, so this is a separate constraint
 				newRanges = append(newRanges, *r)
 			} else {
 				minVersion = &r.Min
