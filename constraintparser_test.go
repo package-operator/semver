@@ -382,16 +382,30 @@ func TestConstraintParser_success(t *testing.T) {
 			},
 		},
 		{
-			name:  "direct adjacent ranges",
-			input: `1 - 2 && 2 - 3`,
+			name:  "direct adjacent or ranges",
+			input: `1 - 2 || 2 - 3`,
 			expected: &Range{
 				Min: Version{Major: 1, Minor: 0, Patch: 0},
 				Max: Version{Major: 3, Minor: 0, Patch: 0},
 			},
 		},
 		{
-			name:  "reverse adjacent ranges",
-			input: `2 - 3 && 1 - 2`,
+			name:  "direct adjacent and ranges",
+			input: `1 - 2 && 2 - 3`,
+			expected: and{
+				&Range{
+					Min: Version{Major: 1, Minor: 0, Patch: 0},
+					Max: Version{Major: 2, Minor: 0, Patch: 0},
+				},
+				&Range{
+					Min: Version{Major: 2, Minor: 0, Patch: 0},
+					Max: Version{Major: 3, Minor: 0, Patch: 0},
+				},
+			},
+		},
+		{
+			name:  "reverse adjacent or ranges",
+			input: `2 - 3 || 1 - 2`,
 			expected: &Range{
 				Min: Version{Major: 1, Minor: 0, Patch: 0},
 				Max: Version{Major: 3, Minor: 0, Patch: 0},
