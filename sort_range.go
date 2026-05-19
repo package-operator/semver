@@ -38,7 +38,7 @@ func (l AscendingMax) Len() int {
 	return len(l)
 }
 
-// Returns true if item[j] is less than item[i].
+// Returns true if item[i] should sort before item[j] (descending order).
 // Implements sort.Interface.
 func (l AscendingMax) Less(i, j int) bool {
 	return l[i].Max.LessThan(l[j].Max)
