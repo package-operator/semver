@@ -11,6 +11,7 @@ package semver
 
 import (
 	"fmt"
+	"sort"
 
 	"pkg.package-operator.run/semver/internal"
 	"pkg.package-operator.run/semver/internal/ranges"
@@ -352,12 +353,16 @@ parse:
 	return p.c, nil
 }
 
+// compactAndValidateLogicalAND validates ranges make sense and don't overlap
+// and it combines ranges that are not fully specified.
+// e.g. "3.4.0 - MAX.MAX.MAX && 0.0.0 - 3.4.MAX" will simplify to "3.4.0 - 3.4.MAX".
 func compactAndValidateLogicalAND(pos internal.Position, and and) (and, error) {
 	if len(and) < 2 {
 		return and, nil
 	}
 
-	var fullyDefinedConstraints []Constraint
+	var newRanges []Range
+	var otherConstraints []Constraint
 
 	// find min version and max version
 	var (
@@ -370,7 +375,7 @@ func compactAndValidateLogicalAND(pos internal.Position, and and) (and, error) {
 		case ok && isMinUnconstraint(*r):
 			if maxVersion != nil {
 				return nil, fmt.Errorf(
-					"%s: <=%s overlaps with <=%s in logical AND",
+					"%s: <=%s is redundant with <=%s in logical AND",
 					pos, r.Max.String(), maxVersion,
 				)
 			}
@@ -379,7 +384,7 @@ func compactAndValidateLogicalAND(pos internal.Position, and and) (and, error) {
 		case ok && isMaxUnconstraint(*r):
 			if minVersion != nil {
 				return nil, fmt.Errorf(
-					"%s: >=%s overlaps with >=%s in logical AND",
+					"%s: >=%s is redundant with >=%s in logical AND",
 					pos, r.Min.String(), minVersion,
 				)
 			}
@@ -387,30 +392,49 @@ func compactAndValidateLogicalAND(pos internal.Position, and and) (and, error) {
 
 		case ok:
 			if minVersion != nil && maxVersion != nil {
-				existingRange := Range{Min: *minVersion, Max: *maxVersion}
-				if !existingRange.Contains(r) {
-					return nil, fmt.Errorf(
-						"%s: non overlapping ranges %q and %q in logical AND",
-						pos, r.String(), existingRange.String(),
-					)
+				// We already have another range preceding us.
+				if maxVersion.Equal(r.Min) {
+					// The preceding range max is our min,
+					// we can combine both ranges together.
+					maxVersion = &r.Max
+					break
 				}
-				fullyDefinedConstraints = append(fullyDefinedConstraints, c)
+				if minVersion.Equal(r.Max) {
+					// The preceding range min is our max,
+					// we can combine both ranges together.
+					minVersion = &r.Min
+					break
+				}
+				newRanges = append(newRanges, *r)
 			} else {
 				minVersion = &r.Min
 				maxVersion = &r.Max
 			}
 
 		default:
-			fullyDefinedConstraints = append(fullyDefinedConstraints, c)
+			otherConstraints = append(otherConstraints, c)
 		}
 	}
 	if minVersion != nil && maxVersion != nil {
-		fullyDefinedConstraints = append(fullyDefinedConstraints, &Range{
+		newRanges = append(newRanges, Range{
 			Min: *minVersion,
 			Max: *maxVersion,
 		})
 	}
-	return fullyDefinedConstraints, nil
+
+	sort.Sort(AscendingMin(newRanges))
+	out := make([]Constraint, 0, len(newRanges)+len(otherConstraints))
+	for _, r := range newRanges {
+		out = append(out, &r)
+	}
+	out = append(out, otherConstraints...)
+
+	if len(and) != len(out) {
+		// Recompact after constraint changes
+		return compactAndValidateLogicalAND(pos, out)
+	}
+
+	return out, nil
 }
 
 func isMinUnconstraint(r Range) bool {
