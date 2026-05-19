@@ -190,9 +190,9 @@ func TestRange_Contains(t *testing.T) {
 			expected: true,
 		},
 		{
-			name:     "4.12.x - 4.14.x && != 4.13.5 does contain 4.13.0 - 4.13.4 && 4.13.6 - 4.13.8",
+			name:     "4.12.x - 4.14.x && != 4.13.5 does contain 4.13.0 - 4.13.4 || 4.13.6 - 4.13.8",
 			rA:       MustNewConstraint("4.12.x - 4.14.x && != 4.13.5"),
-			rB:       MustNewConstraint("4.13.0 - 4.13.4 && 4.13.6 - 4.13.8"),
+			rB:       MustNewConstraint("4.13.0 - 4.13.4 || 4.13.6 - 4.13.8"),
 			expected: true,
 		},
 

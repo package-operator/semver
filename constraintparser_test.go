@@ -398,20 +398,6 @@ func TestConstraintParser_success(t *testing.T) {
 			},
 		},
 		{
-			name:  "interrupted adjacent ranges",
-			input: `2 - 3 && 5 - 6 && 1 - 2`,
-			expected: and{
-				&Range{
-					Min: Version{Major: 1, Minor: 0, Patch: 0},
-					Max: Version{Major: 3, Minor: 0, Patch: 0},
-				},
-				&Range{
-					Min: Version{Major: 5, Minor: 0, Patch: 0},
-					Max: Version{Major: 6, Minor: 0, Patch: 0},
-				},
-			},
-		},
-		{
 			name:  "simple range and exclude",
 			input: `4.12.x - 4.14.x && != 4.13.5`,
 			expected: and{
@@ -500,25 +486,21 @@ func TestConstraintParser_error(t *testing.T) {
 			expectedErr: "col 4: unexpected character U+006E 'n'",
 		},
 		{
-			input:       `>=1.3 && <2 && <1`, // <2 && <1 is redundant, because <2 includes <1
-			expectedErr: "col 17: <=0.x.x is redundant with <=1.x.x in logical AND",
+			input:       `>=1.3 && <2 && <1`, // Over-constrained: >=1.3 and <1 don't overlap
+			expectedErr: "col 17: over-constrained, ranges do not overlap: 1.3.0 - 1.x.x AND 0.0.0 - 0.x.x",
 		},
 		{
 			input:       `>=1.3 && <2 && >1.1`, // >=1.3 is redundant, because >1.1 includes >=1.3
 			expectedErr: "col 19: >=1.2.0 is redundant with >=1.3.0 in logical AND",
 		},
-		// {
-		// 	input:       `2 - 3 && 1 - 2`,
-		// 	expectedErr: `col 14: non overlapping ranges "1.0.0 - 2.0.0" and "2.0.0 - 3.0.0" in logical AND`,
-		// },
 		{
 			input:       `2 - 3 1 - 2`,
 			expectedErr: `col 9: double hyphen in range constraint`,
 		},
-		// {
-		// 	input:       `2 - 3, 1 - 2`,
-		// 	expectedErr: `col 12: non overlapping ranges "1.0.0 - 2.0.0" and "2.0.0 - 3.0.0" in logical AND`,
-		// },
+		{
+			input:       `2 - 3 && 5 - 6 && 1 - 2`, // Non-overlapping ranges after compaction
+			expectedErr: `col 16: AND col 16: over-constrained, ranges do not overlap: 2.0.0 - 3.0.0 AND 5.0.0 - 6.0.0`,
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.input, func(t *testing.T) {
