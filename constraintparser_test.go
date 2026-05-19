@@ -392,15 +392,9 @@ func TestConstraintParser_success(t *testing.T) {
 		{
 			name:  "direct adjacent and ranges",
 			input: `1 - 2 && 2 - 3`,
-			expected: and{
-				&Range{
-					Min: Version{Major: 1, Minor: 0, Patch: 0},
-					Max: Version{Major: 2, Minor: 0, Patch: 0},
-				},
-				&Range{
-					Min: Version{Major: 2, Minor: 0, Patch: 0},
-					Max: Version{Major: 3, Minor: 0, Patch: 0},
-				},
+			expected: &Range{
+				Min: Version{Major: 2, Minor: 0, Patch: 0},
+				Max: Version{Major: 2, Minor: 0, Patch: 0},
 			},
 		},
 		{
@@ -425,6 +419,36 @@ func TestConstraintParser_success(t *testing.T) {
 						Max: Version{Major: 4, Minor: 13, Patch: 5},
 					},
 				},
+			},
+		},
+		{
+			name:  "three ranges with single overlap",
+			input: `1 - 5 && 3 - 7 && 5 - 9`,
+			expected: &Range{
+				Min: Version{Major: 5, Minor: 0, Patch: 0},
+				Max: Version{Major: 5, Minor: 0, Patch: 0},
+			},
+		},
+		{
+			name:  "ranges with broader overlap",
+			input: `1 - 5 && 3 - 7`,
+			expected: and{
+				&Range{
+					Min: Version{Major: 1, Minor: 0, Patch: 0},
+					Max: Version{Major: 5, Minor: 0, Patch: 0},
+				},
+				&Range{
+					Min: Version{Major: 3, Minor: 0, Patch: 0},
+					Max: Version{Major: 7, Minor: 0, Patch: 0},
+				},
+			},
+		},
+		{
+			name:  "exact version match via bounds",
+			input: `>=2.5.0 && <=2.5.0`,
+			expected: &Range{
+				Min: Version{Major: 2, Minor: 5, Patch: 0},
+				Max: Version{Major: 2, Minor: 5, Patch: 0},
 			},
 		},
 	}

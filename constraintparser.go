@@ -410,6 +410,40 @@ func compactLogicalOR(constraints or) or {
 	return result
 }
 
+// simplifyIntersectingRanges checks if multiple ranges in AND only overlap at a single version
+// and simplifies them to a single range with that version.
+// For example, "1-2 && 2-3" → "2-2" (which represents =2.0.0).
+func simplifyIntersectingRanges(ranges []Range) []Range {
+	if len(ranges) < 2 {
+		return ranges
+	}
+
+	// Calculate the intersection of all ranges
+	// Intersection min = max of all mins
+	// Intersection max = min of all maxs
+	intersectionMin := ranges[0].Min
+	intersectionMax := ranges[0].Max
+
+	for i := 1; i < len(ranges); i++ {
+		// Update min to the highest min
+		if ranges[i].Min.GreaterThan(intersectionMin) {
+			intersectionMin = ranges[i].Min
+		}
+		// Update max to the lowest max
+		if ranges[i].Max.LessThan(intersectionMax) {
+			intersectionMax = ranges[i].Max
+		}
+	}
+
+	// If intersection is a single version, replace all ranges with that single version
+	if intersectionMin.Same(intersectionMax) {
+		return []Range{{Min: intersectionMin, Max: intersectionMax}}
+	}
+
+	// Otherwise, return ranges as-is
+	return ranges
+}
+
 // compactAndValidateLogicalAND validates ranges make sense and don't overlap.
 // It combines separate lower and upper bounds (e.g., ">=X && <=Y" → "X - Y")
 // but does NOT combine full ranges, as AND represents intersection, not union.
@@ -480,8 +514,12 @@ func compactAndValidateLogicalAND(pos internal.Position, and and) (and, error) {
 	}
 
 	sort.Sort(AscendingMin(newRanges))
-	out := make([]Constraint, 0, len(newRanges)+len(otherConstraints))
-	for _, r := range newRanges {
+
+	// Simplify ranges that only overlap at a single version
+	simplifiedRanges := simplifyIntersectingRanges(newRanges)
+
+	out := make([]Constraint, 0, len(simplifiedRanges)+len(otherConstraints))
+	for _, r := range simplifiedRanges {
 		out = append(out, &r)
 	}
 	out = append(out, otherConstraints...)
