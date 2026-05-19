@@ -171,5 +171,5 @@ func (not not) Contains(other Constraint) bool {
 }
 
 func (not not) String() string {
-	return "!=" + not.Range.String()
+	return "!" + not.Range.String()
 }

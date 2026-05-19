@@ -14,7 +14,7 @@ type Range struct {
 
 func (r *Range) String() string {
 	if r.Min.Same(r.Max) {
-		return r.Min.String()
+		return "=" + r.Min.String()
 	}
 	return fmt.Sprintf("%s - %s", r.Min.String(), r.Max.String())
 }

@@ -82,13 +82,13 @@ func TestOverConstrainedDetection(t *testing.T) {
 			name:        "equal and not equal same version",
 			constraint:  "=1.0.0 && !=1.0.0",
 			shouldError: true,
-			errorMsg:    "over-constrained, 1.0.0 AND !=1.0.0 excludes all versions",
+			errorMsg:    "over-constrained, =1.0.0 AND !=1.0.0 excludes all versions",
 		},
 		{
 			name:        "equal and not equal different order",
 			constraint:  "!=2.5.0 && =2.5.0",
 			shouldError: true,
-			errorMsg:    "over-constrained, 2.5.0 AND !=2.5.0 excludes all versions",
+			errorMsg:    "over-constrained, =2.5.0 AND !=2.5.0 excludes all versions",
 		},
 
 		// Edge cases
