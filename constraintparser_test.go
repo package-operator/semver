@@ -374,7 +374,7 @@ func TestConstraintParser_success(t *testing.T) {
 			},
 		},
 		{
-			name:  "caret unstable minor range",
+			name:  "greater-equal less compaction",
 			input: `>=3.4,<3.5`,
 			expected: &Range{
 				Min: Version{Major: 3, Minor: 4, Patch: 0},
