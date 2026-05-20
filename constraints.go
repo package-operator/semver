@@ -166,8 +166,31 @@ func (not not) Check(v Version) bool {
 	return !not.Range.Check(v)
 }
 
-func (not not) Contains(other Constraint) bool {
-	return !other.Contains(&not.Range)
+//nolint:revive // Receiver name differs from type to avoid shadowing
+func (n not) Contains(other Constraint) bool {
+	switch v := other.(type) {
+	case *originalInputConstraint:
+		return n.Contains(v.Constraint)
+	case not:
+		return rangeContainsRange(v.Range, n.Range)
+	case *Range:
+		return !rangesOverlap(n.Range, *v)
+	case and:
+		for _, c := range v {
+			if !n.Contains(c) {
+				return false
+			}
+		}
+		return true
+	case or:
+		for _, c := range v {
+			if !n.Contains(c) {
+				return false
+			}
+		}
+		return true
+	}
+	return false
 }
 
 func (not not) String() string {

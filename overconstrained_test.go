@@ -191,3 +191,12 @@ func TestOverConstrainedErrorPosition(t *testing.T) {
 	assert.Contains(t, err.Error(), "col", "error should include position information")
 	assert.Contains(t, err.Error(), "over-constrained", "error should mention over-constrained")
 }
+
+func TestOverConstrainedErrorFormat(t *testing.T) {
+	t.Parallel()
+
+	_, err := NewConstraint("2 - 3 && 5 - 6 && 1 - 2")
+	require.Error(t, err)
+	assert.NotRegexp(t, `col \d+: AND col \d+:`, err.Error(),
+		"error should not have doubled position prefix")
+}

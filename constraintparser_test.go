@@ -537,7 +537,7 @@ func TestConstraintParser_error(t *testing.T) {
 		},
 		{
 			input:       `2 - 3 && 5 - 6 && 1 - 2`, // Non-overlapping ranges after compaction
-			expectedErr: `col 16: AND col 16: over-constrained, ranges do not overlap: 2.0.0 - 3.0.0 AND 5.0.0 - 6.0.0`,
+			expectedErr: `col 16: over-constrained, ranges do not overlap: 2.0.0 - 3.0.0 AND 5.0.0 - 6.0.0`,
 		},
 	}
 	for _, test := range tests {

@@ -289,7 +289,7 @@ parse:
 				return nil, fmt.Errorf("%s: AND empty range constraint", pos)
 			}
 			if err := p.closeRange(pos); err != nil {
-				return nil, fmt.Errorf("%s: AND %w", pos, err)
+				return nil, err
 			}
 
 		case ranges.OR:
@@ -297,7 +297,7 @@ parse:
 				return nil, fmt.Errorf("%s: OR empty range constraint", pos)
 			}
 			if err := p.closeRange(pos); err != nil {
-				return nil, fmt.Errorf("%s: OR %w", pos, err)
+				return nil, err
 			}
 			// Shift current AND constraint into OR
 			if len(p.and) == 1 {
