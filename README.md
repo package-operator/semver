@@ -1,5 +1,18 @@
 # Semver
 
+<p align="center">
+	<a href="https://pkg.go.dev/pkg.package-operator.run/semver"><img src="https://pkg.go.dev/badge/pkg.package-operator.run/semver" /></a>
+	<img src="https://img.shields.io/github/license/package-operator/semver?style=flat-square"/>
+	<img src="https://img.shields.io/github/go-mod/go-version/package-operator/semver?style=flat-square"/>
+	<img src="https://img.shields.io/codecov/c/gh/package-operator/semver?style=flat-square"/>
+</p>
+
+---
+
+Semantic Versioning v2 version and range parser library for Go.
+
+---
+
 The `semver` package implements logic to work with [Sementic Versioning 2.0.0](http://semver.org/) in Go.
 It provides:
 - Parser for semantic versions

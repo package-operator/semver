@@ -11,6 +11,7 @@ package semver
 
 import (
 	"fmt"
+	"sort"
 
 	"pkg.package-operator.run/semver/internal"
 	"pkg.package-operator.run/semver/internal/ranges"
@@ -244,6 +245,9 @@ func (p *parserState) close(pos internal.Position) error {
 		p.or = append(p.or, p.and)
 	}
 
+	// Compact OR'd ranges if possible
+	p.or = compactLogicalOR(p.or)
+
 	switch len(p.or) {
 	case 0:
 	case 1:
@@ -285,7 +289,7 @@ parse:
 				return nil, fmt.Errorf("%s: AND empty range constraint", pos)
 			}
 			if err := p.closeRange(pos); err != nil {
-				return nil, fmt.Errorf("%s: AND %w", pos, err)
+				return nil, err
 			}
 
 		case ranges.OR:
@@ -293,7 +297,7 @@ parse:
 				return nil, fmt.Errorf("%s: OR empty range constraint", pos)
 			}
 			if err := p.closeRange(pos); err != nil {
-				return nil, fmt.Errorf("%s: OR %w", pos, err)
+				return nil, err
 			}
 			// Shift current AND constraint into OR
 			if len(p.and) == 1 {
@@ -352,12 +356,114 @@ parse:
 	return p.c, nil
 }
 
+// compactLogicalOR combines adjacent or overlapping ranges in OR operations.
+// For example, "1-2 || 2-3" → "1-3" (union of ranges).
+func compactLogicalOR(constraints or) or {
+	if len(constraints) < 2 {
+		return constraints
+	}
+
+	// Extract only Range constraints
+	var ranges []Range
+	var other []Constraint
+	for _, c := range constraints {
+		if r, ok := c.(*Range); ok {
+			ranges = append(ranges, *r)
+		} else {
+			other = append(other, c)
+		}
+	}
+
+	if len(ranges) < 2 {
+		return constraints
+	}
+
+	// Sort ranges by min version
+	sort.Sort(AscendingMin(ranges))
+
+	// Merge overlapping or adjacent ranges
+	merged := []Range{ranges[0]}
+	for i := 1; i < len(ranges); i++ {
+		last := &merged[len(merged)-1]
+		current := ranges[i]
+
+		// Check if current range overlaps or is adjacent to the last merged range
+		// Adjacent means last.Max >= current.Min (allowing for touching at boundary)
+		if !last.Max.LessThan(current.Min) {
+			// Merge: extend last range's max if current goes further
+			if current.Max.GreaterThan(last.Max) {
+				last.Max = current.Max
+			}
+		} else {
+			// No overlap, add as new range
+			merged = append(merged, current)
+		}
+	}
+
+	// Rebuild constraint list
+	result := make(or, 0, len(merged)+len(other))
+	for i := range merged {
+		result = append(result, &merged[i])
+	}
+	result = append(result, other...)
+
+	return result
+}
+
+// simplifyIntersectingRanges checks if multiple ranges in AND only overlap at a single version
+// and simplifies them to a single range with that version.
+// For example, "1-2 && 2-3" → "2-2" (which represents =2.0.0).
+func simplifyIntersectingRanges(ranges []Range) []Range {
+	if len(ranges) < 2 {
+		return ranges
+	}
+
+	// Calculate the intersection of all ranges
+	// Intersection min = max of all mins
+	// Intersection max = min of all maxs
+	intersectionMin := ranges[0].Min
+	intersectionMax := ranges[0].Max
+
+	for i := 1; i < len(ranges); i++ {
+		// Update min to the highest min
+		if ranges[i].Min.GreaterThan(intersectionMin) {
+			intersectionMin = ranges[i].Min
+		}
+		// Update max to the lowest max
+		if ranges[i].Max.LessThan(intersectionMax) {
+			intersectionMax = ranges[i].Max
+		}
+	}
+
+	// If intersection is a single version, replace all ranges with that single version
+	if intersectionMin.Same(intersectionMax) {
+		return []Range{{Min: intersectionMin, Max: intersectionMax}}
+	}
+
+	// Otherwise, return ranges as-is
+	return ranges
+}
+
+// compactAndValidateLogicalAND validates ranges make sense and don't overlap.
+// It combines separate lower and upper bounds (e.g., ">=X && <=Y" → "X - Y")
+// but does NOT combine full ranges, as AND represents intersection, not union.
 func compactAndValidateLogicalAND(pos internal.Position, and and) (and, error) {
+	// Validate even single constraints to catch impossible ranges
+	if len(and) < 1 {
+		return and, nil
+	}
+
+	// Validate that constraints are not over-constrained before compaction
+	if err := validateNotOverConstrained(pos, and); err != nil {
+		return nil, err
+	}
+
 	if len(and) < 2 {
 		return and, nil
 	}
 
-	var fullyDefinedConstraints []Constraint
+	var newRanges []Range
+	var otherConstraints []Constraint
 
 	// find min version and max version
 	var (
@@ -370,7 +476,7 @@ func compactAndValidateLogicalAND(pos internal.Position, and and) (and, error) {
 		case ok && isMinUnconstraint(*r):
 			if maxVersion != nil {
 				return nil, fmt.Errorf(
-					"%s: <=%s overlaps with <=%s in logical AND",
+					"%s: <=%s is redundant with <=%s in logical AND",
 					pos, r.Max.String(), maxVersion,
 				)
 			}
@@ -379,38 +485,160 @@ func compactAndValidateLogicalAND(pos internal.Position, and and) (and, error) {
 		case ok && isMaxUnconstraint(*r):
 			if minVersion != nil {
 				return nil, fmt.Errorf(
-					"%s: >=%s overlaps with >=%s in logical AND",
+					"%s: >=%s is redundant with >=%s in logical AND",
 					pos, r.Min.String(), minVersion,
 				)
 			}
 			minVersion = &r.Min
 
 		case ok:
+			// Don't combine full ranges in AND - they represent intersections, not unions.
+			// Only combine when we have separate lower/upper bounds (e.g., >=X && <=Y).
 			if minVersion != nil && maxVersion != nil {
-				existingRange := Range{Min: *minVersion, Max: *maxVersion}
-				if !existingRange.Contains(r) {
-					return nil, fmt.Errorf(
-						"%s: non overlapping ranges %q and %q in logical AND",
-						pos, r.String(), existingRange.String(),
-					)
-				}
-				fullyDefinedConstraints = append(fullyDefinedConstraints, c)
+				// We already have a combined range, so this is a separate constraint
+				newRanges = append(newRanges, *r)
 			} else {
 				minVersion = &r.Min
 				maxVersion = &r.Max
 			}
 
 		default:
-			fullyDefinedConstraints = append(fullyDefinedConstraints, c)
+			otherConstraints = append(otherConstraints, c)
 		}
 	}
 	if minVersion != nil && maxVersion != nil {
-		fullyDefinedConstraints = append(fullyDefinedConstraints, &Range{
+		newRanges = append(newRanges, Range{
 			Min: *minVersion,
 			Max: *maxVersion,
 		})
 	}
-	return fullyDefinedConstraints, nil
+
+	sort.Sort(AscendingMin(newRanges))
+
+	// Simplify ranges that only overlap at a single version
+	simplifiedRanges := simplifyIntersectingRanges(newRanges)
+
+	out := make([]Constraint, 0, len(simplifiedRanges)+len(otherConstraints))
+	for _, r := range simplifiedRanges {
+		out = append(out, &r)
+	}
+	out = append(out, otherConstraints...)
+
+	if len(and) != len(out) {
+		// Recompact after constraint changes
+		return compactAndValidateLogicalAND(pos, out)
+	}
+
+	// Validate that the constraint is not over-constrained (impossible to satisfy)
+	if err := validateNotOverConstrained(pos, out); err != nil {
+		return nil, err
+	}
+
+	return out, nil
+}
+
+// validateNotOverConstrained checks if constraints in AND are impossible to satisfy.
+func validateNotOverConstrained(pos internal.Position, constraints and) error {
+	var ranges []Range
+	var notConstraints []not
+
+	// Collect ranges and NOT constraints
+	for _, c := range constraints {
+		switch v := c.(type) {
+		case *Range:
+			// Check for impossible individual ranges (min > max)
+			if v.Min.GreaterThan(v.Max) {
+				return fmt.Errorf(
+					"%s: over-constrained, no version can satisfy %s (min > max)",
+					pos, v.String(),
+				)
+			}
+			ranges = append(ranges, *v)
+		case not:
+			notConstraints = append(notConstraints, v)
+		case and:
+			// Nested AND - validate recursively
+			if err := validateNotOverConstrained(pos, v); err != nil {
+				return err
+			}
+		case or:
+			// OR in AND - each branch should be valid on its own
+			// We don't validate OR branches as over-constrained since
+			// at least one branch might be satisfiable
+		}
+	}
+
+	// Check for non-overlapping ranges in AND
+	if len(ranges) > 1 {
+		// Check if all ranges have a common overlap
+		for i := range len(ranges) - 1 {
+			for j := i + 1; j < len(ranges); j++ {
+				if !rangesOverlap(ranges[i], ranges[j]) {
+					return fmt.Errorf(
+						"%s: over-constrained, ranges do not overlap: %s AND %s",
+						pos, ranges[i].String(), ranges[j].String(),
+					)
+				}
+			}
+		}
+	}
+
+	// Check if we have both >= and <= constraints that don't overlap
+	// This catches cases like ">=2.0.0 && <1.0.0"
+	var minBound *Version // from >= constraint
+	var maxBound *Version // from <= or < constraint
+
+	for _, r := range ranges {
+		// Check if this is a lower bound (>= or >)
+		if isMaxUnconstraint(r) {
+			if minBound == nil || r.Min.GreaterThan(*minBound) {
+				minBound = &r.Min
+			}
+		}
+		// Check if this is an upper bound (<= or <)
+		if isMinUnconstraint(r) {
+			if maxBound == nil || r.Max.LessThan(*maxBound) {
+				maxBound = &r.Max
+			}
+		}
+	}
+
+	// If we have both bounds, check if they're compatible
+	if minBound != nil && maxBound != nil {
+		if minBound.GreaterThan(*maxBound) {
+			return fmt.Errorf(
+				"%s: over-constrained, lower bound %s is greater than upper bound %s",
+				pos, minBound.String(), maxBound.String(),
+			)
+		}
+	}
+
+	// Check if NOT constraints exclude all versions in ranges
+	if len(ranges) > 0 && len(notConstraints) > 0 {
+		// For single-version ranges with NOT, check if they exclude that exact version
+		for _, r := range ranges {
+			if r.Min.Same(r.Max) {
+				// This is an equality constraint (e.g., =1.0.0)
+				for _, n := range notConstraints {
+					if n.Min.Same(r.Min) && n.Max.Same(r.Max) {
+						return fmt.Errorf(
+							"%s: over-constrained, %s AND %s excludes all versions",
+							pos, r.String(), n.String(),
+						)
+					}
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+// rangesOverlap checks if two ranges have any overlapping versions.
+func rangesOverlap(a, b Range) bool {
+	// Ranges overlap if:
+	// - a.Min <= b.Max AND b.Min <= a.Max
+	return !a.Min.GreaterThan(b.Max) && !b.Min.GreaterThan(a.Max)
 }
 
 func isMinUnconstraint(r Range) bool {

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestAnd(t *testing.T) {
@@ -26,6 +27,58 @@ func TestAnd(t *testing.T) {
 
 		assert.False(t, and.Check(Version{}))
 		assert.False(t, and.Contains(&Range{}))
+	})
+
+	t.Run("compaction structure", func(t *testing.T) {
+		t.Parallel()
+		c, err := NewConstraint("1 - 2 && 2 - 3 && 1.1 - 10")
+		require.NoError(t, err)
+		oic := c.(*originalInputConstraint)
+		r, isSingleRange := oic.Constraint.(*Range)
+		if isSingleRange {
+			assert.True(t, r.Min.Same(Version{Major: 2}) && r.Max.Same(Version{Major: 2}),
+				"intersection should be {2.0.0}, got %s", r.String())
+		}
+	})
+
+	t.Run("compaction Check", func(t *testing.T) {
+		t.Parallel()
+		tests := []struct {
+			name       string
+			constraint string
+			version    string
+			expected   bool
+		}{
+			{"adjacent AND matches at boundary", "1 - 2 && 2 - 3", "2.0.0", true},
+			{"adjacent AND rejects left-only version", "1 - 2 && 2 - 3", "1.5.0", false},
+			{"adjacent AND rejects right-only version", "1 - 2 && 2 - 3", "2.5.0", false},
+			{"adjacent AND rejects left boundary", "1 - 2 && 2 - 3", "1.0.0", false},
+			{"adjacent AND rejects right boundary", "1 - 2 && 2 - 3", "3.0.0", false},
+			{"adjacent AND rejects below both", "1 - 2 && 2 - 3", "0.5.0", false},
+			{"adjacent AND rejects above both", "1 - 2 && 2 - 3", "3.5.0", false},
+			{"overlapping AND matches intersection start", "1.0.0 - 3.0.0 && 2.0.0 - 4.0.0", "2.0.0", true},
+			{"overlapping AND matches intersection mid", "1.0.0 - 3.0.0 && 2.0.0 - 4.0.0", "2.5.0", true},
+			{"overlapping AND matches intersection end", "1.0.0 - 3.0.0 && 2.0.0 - 4.0.0", "3.0.0", true},
+			{"overlapping AND rejects left-only", "1.0.0 - 3.0.0 && 2.0.0 - 4.0.0", "1.5.0", false},
+			{"overlapping AND rejects right-only", "1.0.0 - 3.0.0 && 2.0.0 - 4.0.0", "3.5.0", false},
+			{"identical AND matches inside", "1.0.0 - 2.0.0 && 1.0.0 - 2.0.0", "1.5.0", true},
+			{"identical AND rejects outside", "1.0.0 - 2.0.0 && 1.0.0 - 2.0.0", "2.5.0", false},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				t.Parallel()
+				c, err := NewConstraint(tt.constraint)
+				require.NoError(t, err)
+				assert.Equal(t, tt.expected, c.Check(MustNewVersion(tt.version)))
+			})
+		}
+	})
+
+	t.Run("compaction Contains", func(t *testing.T) {
+		t.Parallel()
+		assert.False(t,
+			MustNewConstraint("2 - 3 && 1 - 2").Contains(MustNewConstraint("1 - 3")),
+			"adjacent AND does not contain full union range")
 	})
 }
 
@@ -64,6 +117,36 @@ func TestOr(t *testing.T) {
 
 		assert.False(t, or.Check(Version{}))
 		assert.False(t, or.Contains(&Range{}))
+	})
+
+	t.Run("overlapping branches Contains", func(t *testing.T) {
+		t.Parallel()
+		tests := []struct {
+			name     string
+			rA       string
+			rB       string
+			expected bool
+		}{
+			{
+				name:     "overlapping OR branches cover full range",
+				rA:       "1 - 3 || 2 - 5",
+				rB:       "1 - 5",
+				expected: true,
+			},
+			{
+				name:     "adjacent OR branches cover full range",
+				rA:       "1 - 2 || 2 - 3",
+				rB:       "1 - 3",
+				expected: true,
+			},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				t.Parallel()
+				assert.Equal(t, tt.expected,
+					MustNewConstraint(tt.rA).Contains(MustNewConstraint(tt.rB)))
+			})
+		}
 	})
 }
 
@@ -108,6 +191,48 @@ func TestNot(t *testing.T) {
 			Min: MustNewVersion("3.0.0"),
 			Max: MustNewVersion("4.0.0"),
 		}))
+	})
+
+	t.Run("Contains", func(t *testing.T) {
+		t.Parallel()
+		tests := []struct {
+			name     string
+			rA       string
+			rB       string
+			expected bool
+		}{
+			{
+				name:     "wider exclusion does not contain narrower exclusion",
+				rA:       "1 - 5 && !=2",
+				rB:       "1 - 5 && !=2.0.0",
+				expected: false,
+			},
+			{
+				name:     "narrower exclusion contains wider exclusion",
+				rA:       "1 - 5 && !=2.0.0",
+				rB:       "1 - 5 && !=2",
+				expected: true,
+			},
+			{
+				name:     "narrow not contains wide not",
+				rA:       "!=2.0.0",
+				rB:       "!=2",
+				expected: true,
+			},
+			{
+				name:     "wide not does not contain narrow not",
+				rA:       "!=2",
+				rB:       "!=2.0.0",
+				expected: false,
+			},
+		}
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				t.Parallel()
+				assert.Equal(t, tt.expected,
+					MustNewConstraint(tt.rA).Contains(MustNewConstraint(tt.rB)))
+			})
+		}
 	})
 }
 

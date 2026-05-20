@@ -14,7 +14,7 @@ type Range struct {
 
 func (r *Range) String() string {
 	if r.Min.Same(r.Max) {
-		return r.Min.String()
+		return "=" + r.Min.String()
 	}
 	return fmt.Sprintf("%s - %s", r.Min.String(), r.Max.String())
 }
@@ -56,12 +56,14 @@ func rangeContains(r Range, other Constraint) bool {
 		return true
 
 	case or:
+		// An OR constraint (A || B) represents the union of versions matching A or B.
+		// For a range to contain this union, it must contain ALL branches.
 		for _, ac := range v {
-			if rangeContains(r, ac) {
-				return true
+			if !rangeContains(r, ac) {
+				return false
 			}
 		}
-		return false
+		return true
 	}
 	return false
 }
