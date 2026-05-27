@@ -1,6 +1,10 @@
 # Semver
 
 <p align="center">
+	<img src="docs/logos/semver-github.png" width=400px>
+</p>
+
+<p align="center">
 	<a href="https://pkg.go.dev/pkg.package-operator.run/semver"><img src="https://pkg.go.dev/badge/pkg.package-operator.run/semver" /></a>
 	<img src="https://img.shields.io/github/license/package-operator/semver?style=flat-square"/>
 	<img src="https://img.shields.io/github/go-mod/go-version/package-operator/semver?style=flat-square"/>
